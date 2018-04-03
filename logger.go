@@ -52,6 +52,8 @@ type Collector interface {
 
 // Logger is the interface for logging instances.
 type Logger interface {
+	SmartSend(level Level, f func() (string, Fields))
+
 	// WithFields returns a new logger instance with fields added to the current
 	// logger's context.
 	WithFields(fields Fields) Logger
@@ -138,6 +140,18 @@ func NewLogger(name string) Logger {
 		// locate the original caller of our exported logging methods.
 		skipFrames: 3,
 	}
+}
+
+func (l *logger) SmartSend(level Level, f func() (string, Fields)) {
+	config := cfg.get()
+	if level > config.threshold {
+		return
+	}
+	text, fields := f()
+
+	new := l.clone()
+	new.context = new.context.WithFields(fields)
+	new.send(level, nil, text)
 }
 
 func (l *logger) String() string {
