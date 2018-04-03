@@ -234,10 +234,7 @@ func (l *logger) ReportRecovery(cause interface{}, message string) {
 
 func (l *logger) EnabledFor(level Level) bool {
 	config := cfg.get()
-	if level > config.threshold {
-		return false
-	}
-	return true
+	return level <= config.threshold
 }
 
 func (l *logger) send(level Level, err error, message string) {
