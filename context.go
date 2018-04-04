@@ -51,6 +51,8 @@ type Context interface {
 	// Name returns the name of the context.
 	Name() string
 
+	Clear()
+
 	// NumValues returns the number of key/value pairs in the Context.
 	// The counting behavior for duplicate keys is currently undefined.
 	NumValues() int
@@ -138,6 +140,10 @@ func (c *context) WithValue(key string, value interface{}) Context {
 		name:  c.name,
 		pairs: c.pairs.append(key, basicValue(value)),
 	}
+}
+
+func (c *context) Clear() {
+	c.pairs = emptyPairs
 }
 
 type pairs struct {

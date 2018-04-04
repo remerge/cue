@@ -440,11 +440,9 @@ func TestLoggerWrap(t *testing.T) {
 	Collect(DEBUG, c)
 
 	unwrapped := NewLogger("unwrapped")
-	wrapped := unwrapped.Wrap()
 
 	unwrapped.Info("unwrapped logger message from test func")
 	wrappedLogger{Logger: unwrapped}.Info("unwrapped logger message from wrapper type")
-	wrappedLogger{Logger: wrapped}.Info("wrapped logger message from wrapper type")
 
 	if len(c.Captured()) != 3 {
 		t.Errorf("Expected to receive 3 events but received %d", len(c.Captured()))

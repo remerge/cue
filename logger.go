@@ -117,11 +117,6 @@ type Logger interface {
 	// the built-in recover() function and simply report the recovery via
 	// ReportRecovery.  ReportRecovery does nothing if cause is nil.
 	ReportRecovery(cause interface{}, message string)
-
-	// Wrap returns a logging instance that skips one additional frame when
-	// capturing frames for a call site.  Wrap should only be used when logging
-	// calls are wrapped by an additional library function or method.
-	Wrap() Logger
 }
 
 // logger is the default logger implementation
@@ -144,9 +139,8 @@ func NewLogger(name string) Logger {
 }
 
 func (l *logger) WithFieldsFunc(f func() Fields) Logger {
-	new := l.clone()
-	new.fieldsFunc = f
-	return new
+	l.fieldsFunc = f
+	return l
 }
 
 func (l *logger) String() string {
@@ -154,21 +148,13 @@ func (l *logger) String() string {
 }
 
 func (l *logger) WithFields(fields Fields) Logger {
-	new := l.clone()
-	new.context = new.context.WithFields(fields)
-	return new
+	l.context = l.context.WithFields(fields)
+	return l
 }
 
 func (l *logger) WithValue(key string, value interface{}) Logger {
-	new := l.clone()
-	new.context = new.context.WithValue(key, value)
-	return new
-}
-
-func (l *logger) Wrap() Logger {
-	new := l.clone()
-	new.skipFrames++
-	return new
+	l.context = l.context.WithValue(key, value)
+	return l
 }
 
 func (l *logger) Debug(message string) {
@@ -323,13 +309,8 @@ func (l *logger) dispatchEvent(event *Event) {
 			entry.worker.Send(event)
 		}
 	}
-}
-
-func (l *logger) clone() *logger {
-	return &logger{
-		context:    l.context,
-		skipFrames: l.skipFrames,
-	}
+	l.fieldsFunc = nil
+	l.context.Clear()
 }
 
 // Collect registers a Collector for the given threshold using synchronous
