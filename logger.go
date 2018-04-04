@@ -52,6 +52,8 @@ type Collector interface {
 
 // Logger is the interface for logging instances.
 type Logger interface {
+	WithFieldsFunc(func() Fields) Logger
+
 	// WithFields returns a new logger instance with fields added to the current
 	// logger's context.
 	WithFields(fields Fields) Logger
@@ -115,15 +117,11 @@ type Logger interface {
 	// the built-in recover() function and simply report the recovery via
 	// ReportRecovery.  ReportRecovery does nothing if cause is nil.
 	ReportRecovery(cause interface{}, message string)
-
-	// Wrap returns a logging instance that skips one additional frame when
-	// capturing frames for a call site.  Wrap should only be used when logging
-	// calls are wrapped by an additional library function or method.
-	Wrap() Logger
 }
 
 // logger is the default logger implementation
 type logger struct {
+	fieldsFunc func() Fields
 	context    Context
 	skipFrames int // Number of frames to skip when calling event.captureFrames.
 }
@@ -140,26 +138,23 @@ func NewLogger(name string) Logger {
 	}
 }
 
+func (l *logger) WithFieldsFunc(f func() Fields) Logger {
+	l.fieldsFunc = f
+	return l
+}
+
 func (l *logger) String() string {
 	return fmt.Sprintf("Logger(name=%s)", l.context.Name())
 }
 
 func (l *logger) WithFields(fields Fields) Logger {
-	new := l.clone()
-	new.context = new.context.WithFields(fields)
-	return new
+	l.context = l.context.WithFields(fields)
+	return l
 }
 
 func (l *logger) WithValue(key string, value interface{}) Logger {
-	new := l.clone()
-	new.context = new.context.WithValue(key, value)
-	return new
-}
-
-func (l *logger) Wrap() Logger {
-	new := l.clone()
-	new.skipFrames++
-	return new
+	l.context = l.context.WithValue(key, value)
+	return l
 }
 
 func (l *logger) Debug(message string) {
@@ -236,6 +231,9 @@ func (l *logger) send(level Level, err error, message string) {
 	if level > config.threshold {
 		return
 	}
+	if l.fieldsFunc != nil {
+		l.context = l.context.WithFields(l.fieldsFunc())
+	}
 
 	event := newEvent(l.context, level, err, message)
 	event.captureFrames(l.skipFrames, config.frames, config.errorFrames, false)
@@ -311,13 +309,8 @@ func (l *logger) dispatchEvent(event *Event) {
 			entry.worker.Send(event)
 		}
 	}
-}
-
-func (l *logger) clone() *logger {
-	return &logger{
-		context:    l.context,
-		skipFrames: l.skipFrames,
-	}
+	l.fieldsFunc = nil
+	l.context.Clear()
 }
 
 // Collect registers a Collector for the given threshold using synchronous
