@@ -52,7 +52,7 @@ type Collector interface {
 
 // Logger is the interface for logging instances.
 type Logger interface {
-	SmartSend(level Level, f func() (string, Fields))
+	WithFieldsFunc(func() Fields) Logger
 
 	// WithFields returns a new logger instance with fields added to the current
 	// logger's context.
@@ -126,6 +126,7 @@ type Logger interface {
 
 // logger is the default logger implementation
 type logger struct {
+	fieldsFunc func() Fields
 	context    Context
 	skipFrames int // Number of frames to skip when calling event.captureFrames.
 }
@@ -142,16 +143,10 @@ func NewLogger(name string) Logger {
 	}
 }
 
-func (l *logger) SmartSend(level Level, f func() (string, Fields)) {
-	config := cfg.get()
-	if level > config.threshold {
-		return
-	}
-	text, fields := f()
-
+func (l *logger) WithFieldsFunc(f func() Fields) Logger {
 	new := l.clone()
-	new.context = new.context.WithFields(fields)
-	new.send(level, nil, text)
+	new.fieldsFunc = f
+	return new
 }
 
 func (l *logger) String() string {
@@ -249,6 +244,9 @@ func (l *logger) send(level Level, err error, message string) {
 	config := cfg.get()
 	if level > config.threshold {
 		return
+	}
+	if l.fieldsFunc != nil {
+		l.context = l.context.WithFields(l.fieldsFunc())
 	}
 
 	event := newEvent(l.context, level, err, message)
