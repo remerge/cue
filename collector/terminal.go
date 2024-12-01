@@ -21,6 +21,7 @@
 package collector
 
 import (
+	"io"
 	"os"
 
 	"github.com/remerge/cue"
@@ -32,12 +33,16 @@ import (
 type Terminal struct {
 	Formatter      format.Formatter // Default: format.HumanReadable
 	ErrorsToStderr bool             // If set, ERROR and FATAL events are written to stderr
+	Writer         io.Writer
 }
 
 // New returns a new collector based on the Terminal configuration.
 func (t Terminal) New() cue.Collector {
 	if t.Formatter == nil {
 		t.Formatter = format.HumanReadable
+	}
+	if t.Writer == nil {
+		t.Writer = os.Stdout
 	}
 	return &terminalCollector{Terminal: t}
 }
@@ -51,7 +56,7 @@ func (t *terminalCollector) String() string {
 }
 
 func (t *terminalCollector) Collect(event *cue.Event) error {
-	output := os.Stdout
+	output := t.Writer
 	if t.ErrorsToStderr && (event.Level == cue.ERROR || event.Level == cue.FATAL) {
 		output = os.Stderr
 	}
